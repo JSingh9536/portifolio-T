@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.nuxt/
+.output/
+target/
+coverage/
+.env
+*.tfstate
+*.tfstate.*
+.terraform/

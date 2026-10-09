@@ -81,6 +81,8 @@ jobs:
     needs: [telemetry-ingest, uplift-sim, mission-control, site-dashboard]
     runs-on: ubuntu-latest
     strategy:
+      # Report every image independently; one broken Dockerfile shouldn't hide another.
+      fail-fast: false
       matrix:
         svc:
           - { name: telemetry-ingest, path: services/telemetry-ingest }

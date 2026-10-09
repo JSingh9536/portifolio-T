@@ -1,4 +1,5 @@
-FROM rust:1-slim AS build
+# Build on the same Debian release as the runtime image so glibc versions match.
+FROM rust:1-slim-bookworm AS build
 WORKDIR /src
 COPY . .
 RUN cargo build --release --locked

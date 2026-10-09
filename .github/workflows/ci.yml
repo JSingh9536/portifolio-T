@@ -15,7 +15,8 @@ jobs:
     defaults: { run: { working-directory: services/telemetry-ingest } }
     services:
       timescaledb:
-        image: timescale/timescaledb:2.17.2-pg16
+        # Google's Docker Hub mirror: same image, no anonymous pull rate limit.
+        image: mirror.gcr.io/timescale/timescaledb:2.17.2-pg16
         env: { POSTGRES_USER: ci, POSTGRES_PASSWORD: ci, POSTGRES_DB: ci }
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U ci" --health-interval 5s --health-retries 10

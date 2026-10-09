@@ -1,0 +1,70 @@
+# Full local stack: `docker compose up --build`, then open http://localhost:3000
+name: terraform-fleet
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: fleet
+      POSTGRES_DB: telemetry
+    ports: ["5432:5432"]
+    volumes: [tsdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet -d telemetry"]
+      interval: 5s
+      retries: 10
+
+  telemetry-ingest:
+    build: ./services/telemetry-ingest
+    environment:
+      DATABASE_URL: postgres://fleet:fleet@timescaledb:5432/telemetry
+      CORS_ORIGIN: http://localhost:3000
+    ports: ["8080:8080"]
+    depends_on:
+      timescaledb: { condition: service_healthy }
+
+  mission-control:
+    build: ./services/mission-control
+    environment:
+      OPERATOR_KEYS: demo:dev-operator
+      ROBOT_KEY: dev-robot
+      CORS_ORIGIN: http://localhost:3000
+    ports: ["3001:3001"]
+
+  uplift-sim:
+    build: ./sim/uplift-sim
+    command: ["--robots", "4", "--grid", "6"]
+    environment:
+      INGEST_URL: http://telemetry-ingest:8080
+      CONTROL_URL: http://mission-control:3001
+      ROBOT_KEY: dev-robot
+      SIM_SPEED: "60"
+    depends_on: [telemetry-ingest, mission-control]
+
+  site-dashboard:
+    build: ./apps/site-dashboard
+    environment:
+      # Browser-side: telemetry is read directly from the host port.
+      NUXT_PUBLIC_INGEST_URL: http://localhost:8080
+      # Server-side only: the dashboard proxies control calls and adds the key.
+      NUXT_CONTROL_URL: http://mission-control:3001
+      NUXT_OPERATOR_KEY: dev-operator
+    ports: ["3000:3000"]
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes: [./infra/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes: [./infra/docker/grafana/provisioning:/etc/grafana/provisioning:ro]
+    ports: ["3002:3000"]
+    depends_on: [prometheus, timescaledb]
+
+volumes:
+  tsdata:
